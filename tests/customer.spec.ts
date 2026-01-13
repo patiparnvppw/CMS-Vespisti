@@ -9,4 +9,5 @@ test.describe('Customer', () => {
             page.getByRole('button', { name: 'Sign in' })
         ).toBeVisible();
     });
+
 });
