@@ -1,5 +1,8 @@
 import { test, expect } from '@playwright/test';
 
+// Auth tests should not use saved authentication state
+test.use({ storageState: { cookies: [], origins: [] } });
+
 test.describe('Authentication', () => {
     test('should show login page', async ({ page }) => {
         await page.goto('/signin');

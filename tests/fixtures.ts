@@ -1,25 +1,22 @@
 import { test as base, Page } from '@playwright/test';
+import path from 'path';
+
+const authFile = path.join(__dirname, '../playwright/.auth/user.json');
 
 // Extend basic test with custom fixtures
 export const test = base.extend<{ authenticatedPage: Page }>({
     // Custom fixture for authenticated user
-    authenticatedPage: async ({ page }, use) => {
-        // Perform login via ADFS
-        await page.goto('/signin');
-        await page.getByRole('button', { name: 'Sign in' }).click();
-
-        // Wait for ADFS redirect
-        await page.waitForURL(/vespiario\.net\/adfs/);
-
-        // Fill ADFS login form
-        await page.locator('#userNameInput').fill('test@vespiario.net');
-        await page.locator('#passwordInput').fill('T12345678');
-        await page.locator('#submitButton').click();
-
-        // Wait for successful login
-        await page.waitForURL(/vespistiid-backend-dev\.vespiario\.net/);
+    // Note: With auth.setup.ts, most tests will use storageState automatically
+    // This fixture is for special cases where you need fresh authentication
+    authenticatedPage: async ({ browser }, use) => {
+        const context = await browser.newContext({
+            storageState: authFile,
+        });
+        const page = await context.newPage();
 
         await use(page);
+
+        await context.close();
     },
 });
 
