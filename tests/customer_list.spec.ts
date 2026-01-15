@@ -759,4 +759,302 @@ test.describe('Customer', () => {
             }
         }
     });
+
+    test('Verify filter by Created Date', async ({ page }) => {
+        await page.goto('/customer');
+        await expect(page.locator('table')).toBeVisible();
+
+        // Collect created dates from active users
+        const rows = page.locator('tbody tr');
+        const rowCount = await rows.count();
+        const createdDates: string[] = [];
+
+        for (let i = 0; i < rowCount; i++) {
+            const row = rows.nth(i);
+            const deletedDate = await row.locator('td:nth-child(7)').textContent();
+            const createdDateText = await row.locator('td:nth-child(6)').textContent();
+
+            // Only include active users with created date
+            if (createdDateText && (!deletedDate?.trim() || deletedDate.trim() === '-')) {
+                const date = createdDateText.trim();
+                // Created date format: dd/mm/yyyy
+                if (date.match(/\d{2}\/\d{2}\/\d{4}/)) {
+                    createdDates.push(date);
+                }
+            }
+        }
+
+        expect(createdDates.length).toBeGreaterThan(0);
+
+        // Sort dates and select random range
+        const sortedDates = createdDates.map(d => {
+            const [day, month, year] = d.split('/');
+            return {
+                dateStr: d,
+                dateObj: new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+            };
+        }).sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
+
+        // Select random start date
+        const maxStartIndex = Math.max(0, sortedDates.length - 2);
+        const startIndex = Math.floor(Math.random() * maxStartIndex);
+
+        // Select end date (1-7 days after start date)
+        const fromDateObj = sortedDates[startIndex].dateObj;
+        const maxEndDate = new Date(fromDateObj.getTime() + (7 * 24 * 60 * 60 * 1000)); // +7 days
+
+        // Filter dates that are within 1-7 days from start date
+        const possibleEndDates = sortedDates.filter((d, idx) => {
+            return idx > startIndex &&
+                d.dateObj.getTime() > fromDateObj.getTime() &&
+                d.dateObj.getTime() <= maxEndDate.getTime();
+        });
+
+        // If no dates within 7 days, use the next available date
+        const endDate = possibleEndDates.length > 0
+            ? possibleEndDates[Math.floor(Math.random() * possibleEndDates.length)]
+            : sortedDates[startIndex + 1];
+
+        const fromDate = sortedDates[startIndex].dateStr;
+        const toDate = endDate.dateStr;
+
+        const [fromDay, fromMonth, fromYear] = fromDate.split('/');
+        const [toDay, toMonth, toYear] = toDate.split('/');
+
+        console.log(`Testing with Created Date Range: ${fromDate} to ${toDate}`);
+
+        // Select filter type
+        const filterDropdown = page.locator('select').first();
+        await filterDropdown.selectOption('created_at');
+
+        await page.waitForTimeout(500);
+
+        // Click date input to open flatpickr calendar
+        const dateInput = page.locator('input#created-at-filter');
+        await dateInput.click();
+
+        await page.waitForTimeout(500);
+
+        // Wait for flatpickr calendar to appear
+        await page.waitForSelector('.flatpickr-calendar.open', { timeout: 3000 });
+
+        // Select date range in flatpickr calendar
+        await page.evaluate(({ fromDay, fromMonth, fromYear, toDay, toMonth, toYear }) => {
+            const fp = (document.querySelector('input#created-at-filter') as any)?._flatpickr;
+            if (fp) {
+                // Set date range using flatpickr API
+                const fromDateStr = `${fromDay}/${fromMonth}/${fromYear}`;
+                const toDateStr = `${toDay}/${toMonth}/${toYear}`;
+                fp.setDate([fromDateStr, toDateStr], true, 'd/m/Y');
+            }
+        }, { fromDay, fromMonth, fromYear, toDay, toMonth, toYear });
+
+        await page.waitForTimeout(500);
+
+        // Click search button
+        const searchButton = page.getByRole('button', { name: /search/i });
+        await expect(searchButton).toBeEnabled();
+        await searchButton.click();
+
+        await page.waitForTimeout(1000);
+
+        // Verify results are within selected date range
+        const createdDateElements = page.locator('tbody tr td:nth-child(6)');
+        const resultCount = await createdDateElements.count();
+
+        console.log(`Found ${resultCount} results for created date range ${fromDate} to ${toDate}`);
+
+        // Use already created date objects for comparison
+        const toDateObj = endDate.dateObj;
+
+        if (resultCount > 0) {
+            for (let i = 0; i < Math.min(resultCount, 10); i++) {
+                const dateText = await createdDateElements.nth(i).textContent();
+                const [d, m, y] = dateText?.trim().split('/') || [];
+
+                if (d && m && y) {
+                    const resultDate = new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
+
+                    expect(resultDate.getTime()).toBeGreaterThanOrEqual(fromDateObj.getTime());
+                    expect(resultDate.getTime()).toBeLessThanOrEqual(toDateObj.getTime());
+                    console.log(`[${i}] ✓ Created Date: ${dateText}`);
+                }
+            }
+        }
+    });
+
+    test('Verify filter by Deleted Date', async ({ page }) => {
+        await page.goto('/customer');
+        await expect(page.locator('table')).toBeVisible();
+
+        // Collect deleted dates from users who have been deleted
+        const rows = page.locator('tbody tr');
+        const rowCount = await rows.count();
+        const deletedDates: string[] = [];
+
+        for (let i = 0; i < rowCount; i++) {
+            const row = rows.nth(i);
+            const deletedDateText = await row.locator('td:nth-child(7)').textContent();
+
+            // Only include users with deleted date (not empty or "-")
+            if (deletedDateText && deletedDateText.trim() !== '' && deletedDateText.trim() !== '-') {
+                const date = deletedDateText.trim();
+                // Deleted date format: dd/mm/yyyy
+                if (date.match(/\d{2}\/\d{2}\/\d{4}/)) {
+                    deletedDates.push(date);
+                }
+            }
+        }
+
+        expect(deletedDates.length).toBeGreaterThan(0);
+
+        // Sort dates and select random range
+        const sortedDates = deletedDates.map(d => {
+            const [day, month, year] = d.split('/');
+            return {
+                dateStr: d,
+                dateObj: new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+            };
+        }).sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
+
+        // Select random start date
+        const maxStartIndex = Math.max(0, sortedDates.length - 2);
+        const startIndex = Math.floor(Math.random() * maxStartIndex);
+
+        // Select end date (1-7 days after start date)
+        const fromDateObj = sortedDates[startIndex].dateObj;
+        const maxEndDate = new Date(fromDateObj.getTime() + (7 * 24 * 60 * 60 * 1000)); // +7 days
+
+        // Filter dates that are within 1-7 days from start date
+        const possibleEndDates = sortedDates.filter((d, idx) => {
+            return idx > startIndex &&
+                d.dateObj.getTime() > fromDateObj.getTime() &&
+                d.dateObj.getTime() <= maxEndDate.getTime();
+        });
+
+        // If no dates within 7 days, use the next available date
+        const endDate = possibleEndDates.length > 0
+            ? possibleEndDates[Math.floor(Math.random() * possibleEndDates.length)]
+            : sortedDates[startIndex + 1];
+
+        const fromDate = sortedDates[startIndex].dateStr;
+        const toDate = endDate.dateStr;
+
+        const [fromDay, fromMonth, fromYear] = fromDate.split('/');
+        const [toDay, toMonth, toYear] = toDate.split('/');
+
+        console.log(`Testing with Deleted Date Range: ${fromDate} to ${toDate}`);
+
+        // Select filter type
+        const filterDropdown = page.locator('select').first();
+        await filterDropdown.selectOption('deleted_at');
+
+        await page.waitForTimeout(500);
+
+        // Click date input to open flatpickr calendar - find by placeholder
+        const dateInput = page.locator('input[placeholder*="Deleted date"]').or(page.locator('input.flatpickr-input').last());
+        await dateInput.click();
+
+        await page.waitForTimeout(500);
+
+        // Wait for flatpickr calendar to appear
+        await page.waitForSelector('.flatpickr-calendar.open', { timeout: 3000 });
+
+        // Select date range in flatpickr calendar - find by checking which flatpickr is visible
+        await page.evaluate(({ fromDay, fromMonth, fromYear, toDay, toMonth, toYear }) => {
+            // Find all flatpickr instances
+            const inputs = document.querySelectorAll('input.flatpickr-input');
+            for (const input of inputs) {
+                const fp = (input as any)?._flatpickr;
+                if (fp && fp.isOpen) {
+                    // Set date range using flatpickr API
+                    const fromDateStr = `${fromDay}/${fromMonth}/${fromYear}`;
+                    const toDateStr = `${toDay}/${toMonth}/${toYear}`;
+                    fp.setDate([fromDateStr, toDateStr], true, 'd/m/Y');
+                    break;
+                }
+            }
+        }, { fromDay, fromMonth, fromYear, toDay, toMonth, toYear });
+
+        await page.waitForTimeout(500);
+
+        // Click search button
+        const searchButton = page.getByRole('button', { name: /search/i });
+        await expect(searchButton).toBeEnabled();
+        await searchButton.click();
+
+        await page.waitForTimeout(1000);
+
+        // Verify results are within selected date range
+        const deletedDateElements = page.locator('tbody tr td:nth-child(7)');
+        const resultCount = await deletedDateElements.count();
+
+        console.log(`Found ${resultCount} results for deleted date range ${fromDate} to ${toDate}`);
+
+        // Use already created date objects for comparison
+        const toDateObj = endDate.dateObj;
+
+        if (resultCount > 0) {
+            for (let i = 0; i < Math.min(resultCount, 10); i++) {
+                const dateText = await deletedDateElements.nth(i).textContent();
+                const [d, m, y] = dateText?.trim().split('/') || [];
+
+                if (d && m && y) {
+                    const resultDate = new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
+
+                    expect(resultDate.getTime()).toBeGreaterThanOrEqual(fromDateObj.getTime());
+                    expect(resultDate.getTime()).toBeLessThanOrEqual(toDateObj.getTime());
+                    console.log(`[${i}] ✓ Deleted Date: ${dateText}`);
+                }
+            }
+        }
+    });
+
+    test('Verify detail button', async ({ page }) => {
+        await page.goto('/customer');
+        await expect(page.locator('table')).toBeVisible();
+
+        const rows = page.locator('tbody tr');
+        const rowCount = await rows.count();
+
+        let activeUsersWithButton = 0;
+        let deletedUsersWithoutButton = 0;
+
+        console.log(`Checking ${rowCount} rows for detail buttons`);
+
+        for (let i = 0; i < rowCount; i++) {
+            const row = rows.nth(i);
+            const deletedDate = await row.locator('td:nth-child(7)').textContent();
+            const detailCell = row.locator('td:nth-child(8)'); // Last column (Detail)
+            const detailButton = detailCell.locator('button, a').first();
+
+            const isDeleted = deletedDate && deletedDate.trim() !== '' && deletedDate.trim() !== '-';
+            const hasButton = await detailButton.count() > 0;
+
+            if (isDeleted) {
+                // Deleted user should NOT have button
+                expect(hasButton, `Row ${i}: Deleted user should not have detail button`).toBe(false);
+                deletedUsersWithoutButton++;
+                console.log(`[${i}] ✓ Deleted user - No button (as expected)`);
+            } else {
+                // Active user should have button
+                expect(hasButton, `Row ${i}: Active user should have detail button`).toBe(true);
+
+                // Verify button is visible
+                if (hasButton) {
+                    await expect(detailButton).toBeVisible();
+                }
+
+                activeUsersWithButton++;
+                console.log(`[${i}] ✓ Active user - Has button`);
+            }
+        }
+
+        console.log(`\nSummary:`);
+        console.log(`Active users with button: ${activeUsersWithButton}`);
+        console.log(`Deleted users without button: ${deletedUsersWithoutButton}`);
+
+        // Verify we found at least some of each type
+        expect(activeUsersWithButton).toBeGreaterThan(0);
+    });
 });
