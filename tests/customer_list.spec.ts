@@ -1,4 +1,58 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
+
+/**
+ * Helper function to verify all pages by looping through pagination
+ * Clicks Next button until it's disabled, verifying each row on each page
+ */
+async function verifyAllPagesWithPagination(
+    page: Page,
+    verifyRowCallback: (rowIndex: number, pageNum: number, totalVerified: number) => Promise<void>,
+    filterDescription: string
+): Promise<number> {
+    let currentPage = 1;
+    let totalVerified = 0;
+
+    while (true) {
+        // Wait for table to be stable
+        await page.waitForTimeout(300);
+
+        // Get rows on current page
+        const rows = page.locator('tbody tr');
+        const rowCount = await rows.count();
+
+        console.log(`Page ${currentPage}: Found ${rowCount} rows to verify`);
+
+        // Verify each row on current page
+        for (let i = 0; i < rowCount; i++) {
+            await verifyRowCallback(i, currentPage, totalVerified);
+            totalVerified++;
+        }
+
+        // Check if Next button exists and is not disabled
+        const nextButton = page.locator('button:has-text("Next")');
+        const nextButtonExists = await nextButton.count() > 0;
+
+        if (!nextButtonExists) {
+            console.log(`No Next button found - single page result`);
+            break;
+        }
+
+        const isDisabled = await nextButton.isDisabled();
+
+        if (isDisabled) {
+            console.log(`Next button is disabled - reached last page (Page ${currentPage})`);
+            break;
+        }
+
+        // Click Next to go to next page
+        await nextButton.click();
+        await page.waitForTimeout(500);
+        currentPage++;
+    }
+
+    console.log(`\n✓ ${filterDescription}: Verified ${totalVerified} total rows across ${currentPage} page(s)`);
+    return totalVerified;
+}
 
 test.describe('Customer', () => {
     test('Display customer list', async ({ page }) => {
@@ -459,19 +513,19 @@ test.describe('Customer', () => {
         // Wait for results
         await page.waitForTimeout(1000);
 
-        // Verify filtered results contain the searched ID
-        const visibleIds = page.locator('tbody tr .text-theme-xs.text-gray-500');
-        const count = await visibleIds.count();
+        // Verify filtered results contain the searched ID across all pages
+        const totalVerified = await verifyAllPagesWithPagination(
+            page,
+            async (rowIndex, pageNum, totalIdx) => {
+                const visibleIds = page.locator('tbody tr .text-theme-xs.text-gray-500');
+                const id = await visibleIds.nth(rowIndex).textContent();
+                expect(id, `Page ${pageNum} Row ${rowIndex}: ID should contain ${randomId}`).toContain(randomId || '');
+                console.log(`[P${pageNum}-${rowIndex}] ✓ Match: ${id}`);
+            },
+            `Vespisti ID filter (${randomId})`
+        );
 
-        console.log(`Found ${count} results`);
-        expect(count).toBeGreaterThan(0);
-
-        // Verify all visible IDs match the search
-        for (let i = 0; i < count; i++) {
-            const id = await visibleIds.nth(i).textContent();
-            expect(id).toContain(randomId || '');
-            console.log(`[${i}] ✓ Match: ${id}`);
-        }
+        expect(totalVerified, 'Should have at least 1 result').toBeGreaterThan(0);
     });
 
     test('Verify filter by Email', async ({ page }) => {
@@ -526,21 +580,21 @@ test.describe('Customer', () => {
 
         await page.waitForTimeout(1000);
 
-        // Verify results
-        const emailElements = page.locator('tbody tr td:nth-child(2)');
-        const count = await emailElements.count();
-
-        console.log(`Found ${count} results for "${searchTerm}"`);
-
-        if (count > 0) {
-            for (let i = 0; i < count; i++) {
-                const email = await emailElements.nth(i).textContent();
+        // Verify results across all pages
+        const totalVerified = await verifyAllPagesWithPagination(
+            page,
+            async (rowIndex, pageNum, totalIdx) => {
+                const emailElements = page.locator('tbody tr td:nth-child(2)');
+                const email = await emailElements.nth(rowIndex).textContent();
                 const localPart = email?.split('@')[0] || '';
                 const visible = localPart.replace(/\*/g, '');
-                expect(visible).toContain(searchTerm);
-                console.log(`[${i}] ✓ Match: ${email}`);
-            }
-        }
+                expect(visible, `Page ${pageNum} Row ${rowIndex}: Email local part should contain ${searchTerm}`).toContain(searchTerm);
+                console.log(`[P${pageNum}-${rowIndex}] ✓ Match: ${email}`);
+            },
+            `Email filter (${searchTerm})`
+        );
+
+        expect(totalVerified, 'Should have at least 1 result').toBeGreaterThan(0);
     });
 
     test('Verify filter by Phone', async ({ page }) => {
@@ -587,18 +641,20 @@ test.describe('Customer', () => {
 
         await page.waitForTimeout(1000);
 
-        // Verify results
-        const phoneElements = page.locator('tbody tr td:nth-child(3)');
-        const count = await phoneElements.count();
+        // Verify results across all pages
+        const totalVerified = await verifyAllPagesWithPagination(
+            page,
+            async (rowIndex, pageNum, totalIdx) => {
+                const phoneElements = page.locator('tbody tr td:nth-child(3)');
+                const phone = await phoneElements.nth(rowIndex).textContent();
+                const visibleDigits = phone?.replace(/\*/g, '').replace(/[^0-9]/g, '') || '';
+                expect(visibleDigits, `Page ${pageNum} Row ${rowIndex}: Phone ${phone} should contain ${randomPhone}`).toContain(randomPhone);
+                console.log(`[P${pageNum}-${rowIndex}] ✓ Match: ${phone}`);
+            },
+            `Phone filter (${randomPhone})`
+        );
 
-        console.log(`Found ${count} results`);
-
-        if (count > 0) {
-            for (let i = 0; i < Math.min(count, 3); i++) {
-                const phone = await phoneElements.nth(i).textContent();
-                console.log(`[${i}] Result: ${phone}`);
-            }
-        }
+        expect(totalVerified, 'Should have at least 1 result').toBeGreaterThan(0);
     });
 
     test('Verify filter by Gender', async ({ page }) => {
@@ -622,19 +678,19 @@ test.describe('Customer', () => {
 
         await page.waitForTimeout(1000);
 
-        // Verify Male results
-        const maleElements = page.locator('tbody tr td:nth-child(4)');
-        const maleCount = await maleElements.count();
+        // Verify Male results across all pages
+        const maleVerified = await verifyAllPagesWithPagination(
+            page,
+            async (rowIndex, pageNum, totalIdx) => {
+                const genderElements = page.locator('tbody tr td:nth-child(4)');
+                const gender = await genderElements.nth(rowIndex).textContent();
+                expect(gender?.trim().toLowerCase(), `Page ${pageNum} Row ${rowIndex}: Gender should be male`).toBe('male');
+                console.log(`[P${pageNum}-${rowIndex}] ✓ Gender: ${gender}`);
+            },
+            'Gender filter (Male)'
+        );
 
-        console.log(`Found ${maleCount} Male results`);
-
-        if (maleCount > 0) {
-            for (let i = 0; i < Math.min(maleCount, 5); i++) {
-                const gender = await maleElements.nth(i).textContent();
-                expect(gender?.trim().toLowerCase()).toBe('male');
-                console.log(`[${i}] ✓ Gender: ${gender}`);
-            }
-        }
+        expect(maleVerified, 'Should have at least 1 Male result').toBeGreaterThan(0);
 
         // Clear and test Female filter
         const clearButton = page.getByRole('button', { name: /clear/i });
@@ -652,19 +708,19 @@ test.describe('Customer', () => {
 
         await page.waitForTimeout(1000);
 
-        // Verify Female results
-        const femaleElements = page.locator('tbody tr td:nth-child(4)');
-        const femaleCount = await femaleElements.count();
+        // Verify Female results across all pages
+        const femaleVerified = await verifyAllPagesWithPagination(
+            page,
+            async (rowIndex, pageNum, totalIdx) => {
+                const genderElements = page.locator('tbody tr td:nth-child(4)');
+                const gender = await genderElements.nth(rowIndex).textContent();
+                expect(gender?.trim().toLowerCase(), `Page ${pageNum} Row ${rowIndex}: Gender should be female`).toBe('female');
+                console.log(`[P${pageNum}-${rowIndex}] ✓ Gender: ${gender}`);
+            },
+            'Gender filter (Female)'
+        );
 
-        console.log(`Found ${femaleCount} Female results`);
-
-        if (femaleCount > 0) {
-            for (let i = 0; i < Math.min(femaleCount, 5); i++) {
-                const gender = await femaleElements.nth(i).textContent();
-                expect(gender?.trim().toLowerCase()).toBe('female');
-                console.log(`[${i}] ✓ Gender: ${gender}`);
-            }
-        }
+        expect(femaleVerified, 'Should have at least 1 Female result').toBeGreaterThan(0);
     });
 
     test('Verify filter by Date of Birth', async ({ page }) => {
@@ -736,28 +792,28 @@ test.describe('Customer', () => {
 
         await page.waitForTimeout(1000);
 
-        // Verify results match selected month and year range
-        const dobElements = page.locator('tbody tr td:nth-child(5)');
-        const resultCount = await dobElements.count();
-
-        console.log(`Found ${resultCount} results for month ${randomBirth.month}, year range ${fromYear}-${toYear}`);
-
-        if (resultCount > 0) {
-            for (let i = 0; i < Math.min(resultCount, 10); i++) {
-                const dobText = await dobElements.nth(i).textContent();
+        // Verify results match selected month and year range across all pages
+        const totalVerified = await verifyAllPagesWithPagination(
+            page,
+            async (rowIndex, pageNum, totalIdx) => {
+                const dobElements = page.locator('tbody tr td:nth-child(5)');
+                const dobText = await dobElements.nth(rowIndex).textContent();
                 const match = dobText?.match(/\*\*\/(\d{2})\/(\d{4})/);
 
                 if (match) {
                     const resultMonth = parseInt(match[1]);
                     const resultYear = parseInt(match[2]);
 
-                    expect(resultMonth).toBe(randomBirth.month);
-                    expect(resultYear).toBeGreaterThanOrEqual(fromYear);
-                    expect(resultYear).toBeLessThanOrEqual(toYear);
-                    console.log(`[${i}] ✓ DOB: ${dobText} (Year: ${resultYear})`);
+                    expect(resultMonth, `Page ${pageNum} Row ${rowIndex}: Month should be ${randomBirth.month}`).toBe(randomBirth.month);
+                    expect(resultYear, `Page ${pageNum} Row ${rowIndex}: Year should be >= ${fromYear}`).toBeGreaterThanOrEqual(fromYear);
+                    expect(resultYear, `Page ${pageNum} Row ${rowIndex}: Year should be <= ${toYear}`).toBeLessThanOrEqual(toYear);
+                    console.log(`[P${pageNum}-${rowIndex}] ✓ DOB: ${dobText} (Year: ${resultYear})`);
                 }
-            }
-        }
+            },
+            `DOB filter (Month: ${randomBirth.month}, Years: ${fromYear}-${toYear})`
+        );
+
+        expect(totalVerified, 'Should have at least 1 result').toBeGreaterThan(0);
     });
 
     test('Verify filter by Created Date', async ({ page }) => {
@@ -858,29 +914,28 @@ test.describe('Customer', () => {
 
         await page.waitForTimeout(1000);
 
-        // Verify results are within selected date range
-        const createdDateElements = page.locator('tbody tr td:nth-child(6)');
-        const resultCount = await createdDateElements.count();
-
-        console.log(`Found ${resultCount} results for created date range ${fromDate} to ${toDate}`);
-
-        // Use already created date objects for comparison
+        // Verify results are within selected date range across all pages
         const toDateObj = endDate.dateObj;
 
-        if (resultCount > 0) {
-            for (let i = 0; i < Math.min(resultCount, 10); i++) {
-                const dateText = await createdDateElements.nth(i).textContent();
+        const totalVerified = await verifyAllPagesWithPagination(
+            page,
+            async (rowIndex, pageNum, totalIdx) => {
+                const createdDateElements = page.locator('tbody tr td:nth-child(6)');
+                const dateText = await createdDateElements.nth(rowIndex).textContent();
                 const [d, m, y] = dateText?.trim().split('/') || [];
 
                 if (d && m && y) {
                     const resultDate = new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
 
-                    expect(resultDate.getTime()).toBeGreaterThanOrEqual(fromDateObj.getTime());
-                    expect(resultDate.getTime()).toBeLessThanOrEqual(toDateObj.getTime());
-                    console.log(`[${i}] ✓ Created Date: ${dateText}`);
+                    expect(resultDate.getTime(), `Page ${pageNum} Row ${rowIndex}: ${dateText} should be >= ${fromDate}`).toBeGreaterThanOrEqual(fromDateObj.getTime());
+                    expect(resultDate.getTime(), `Page ${pageNum} Row ${rowIndex}: ${dateText} should be <= ${toDate}`).toBeLessThanOrEqual(toDateObj.getTime());
+                    console.log(`[P${pageNum}-${rowIndex}] ✓ Created Date: ${dateText}`);
                 }
-            }
-        }
+            },
+            `Created Date filter (${fromDate} to ${toDate})`
+        );
+
+        expect(totalVerified, 'Should have at least 1 result').toBeGreaterThan(0);
     });
 
     test('Verify filter by Deleted Date', async ({ page }) => {
@@ -985,29 +1040,28 @@ test.describe('Customer', () => {
 
         await page.waitForTimeout(1000);
 
-        // Verify results are within selected date range
-        const deletedDateElements = page.locator('tbody tr td:nth-child(7)');
-        const resultCount = await deletedDateElements.count();
-
-        console.log(`Found ${resultCount} results for deleted date range ${fromDate} to ${toDate}`);
-
-        // Use already created date objects for comparison
+        // Verify results are within selected date range across all pages
         const toDateObj = endDate.dateObj;
 
-        if (resultCount > 0) {
-            for (let i = 0; i < Math.min(resultCount, 10); i++) {
-                const dateText = await deletedDateElements.nth(i).textContent();
+        const totalVerified = await verifyAllPagesWithPagination(
+            page,
+            async (rowIndex, pageNum, totalIdx) => {
+                const deletedDateElements = page.locator('tbody tr td:nth-child(7)');
+                const dateText = await deletedDateElements.nth(rowIndex).textContent();
                 const [d, m, y] = dateText?.trim().split('/') || [];
 
                 if (d && m && y) {
                     const resultDate = new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
 
-                    expect(resultDate.getTime()).toBeGreaterThanOrEqual(fromDateObj.getTime());
-                    expect(resultDate.getTime()).toBeLessThanOrEqual(toDateObj.getTime());
-                    console.log(`[${i}] ✓ Deleted Date: ${dateText}`);
+                    expect(resultDate.getTime(), `Page ${pageNum} Row ${rowIndex}: ${dateText} should be >= ${fromDate}`).toBeGreaterThanOrEqual(fromDateObj.getTime());
+                    expect(resultDate.getTime(), `Page ${pageNum} Row ${rowIndex}: ${dateText} should be <= ${toDate}`).toBeLessThanOrEqual(toDateObj.getTime());
+                    console.log(`[P${pageNum}-${rowIndex}] ✓ Deleted Date: ${dateText}`);
                 }
-            }
-        }
+            },
+            `Deleted Date filter (${fromDate} to ${toDate})`
+        );
+
+        expect(totalVerified, 'Should have at least 1 result').toBeGreaterThan(0);
     });
 
     test('Verify detail button', async ({ page }) => {
