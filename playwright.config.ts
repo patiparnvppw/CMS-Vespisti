@@ -18,7 +18,7 @@ const environments = {
         password: process.env.TEST_PASSWORD || 'T12345678',
     },
     uat: {
-        baseURL: process.env.BASE_URL || 'https://uat.cms-vespisti.com',
+        baseURL: process.env.BASE_URL || 'https://vespistiid-backend-uat.vespiario.net/',
         username: process.env.TEST_USERNAME || 'test@vespiario.net',
         password: process.env.TEST_PASSWORD || 'T12345678',
     },
