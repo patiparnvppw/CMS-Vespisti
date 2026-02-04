@@ -866,10 +866,10 @@ test.describe('Customer', () => {
                 d.dateObj.getTime() <= maxEndDate.getTime();
         });
 
-        // If no dates within 7 days, use the next available date
+        // If no dates within 7 days, use the next available date or same date as fallback
         const endDate = possibleEndDates.length > 0
             ? possibleEndDates[Math.floor(Math.random() * possibleEndDates.length)]
-            : sortedDates[startIndex + 1];
+            : sortedDates[Math.min(startIndex + 1, sortedDates.length - 1)];
 
         const fromDate = sortedDates[startIndex].dateStr;
         const toDate = endDate.dateStr;
@@ -987,10 +987,10 @@ test.describe('Customer', () => {
                 d.dateObj.getTime() <= maxEndDate.getTime();
         });
 
-        // If no dates within 7 days, use the next available date
+        // If no dates within 7 days, use the next available date or same date as fallback
         const endDate = possibleEndDates.length > 0
             ? possibleEndDates[Math.floor(Math.random() * possibleEndDates.length)]
-            : sortedDates[startIndex + 1];
+            : sortedDates[Math.min(startIndex + 1, sortedDates.length - 1)];
 
         const fromDate = sortedDates[startIndex].dateStr;
         const toDate = endDate.dateStr;

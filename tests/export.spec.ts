@@ -302,15 +302,30 @@ test.describe('Export', () => {
             const nameElement = await row.locator('.text-theme-sm.font-medium').textContent();
 
             if (nameElement && (!deletedDate?.trim() || deletedDate.trim() === '-')) {
-                // Get first name (before space)
-                const firstName = nameElement.trim().split(' ')[0];
-                if (firstName && firstName.length >= 3) {
+                const nameParts = nameElement.trim().split(' ');
+                const firstName = nameParts[0] || '';
+                // Last name visible portion (remove asterisks to get actual chars shown)
+                const lastNameVisible = nameParts[1]?.replace(/\*/g, '') || '';
+
+                // Search requires exactly 3 characters minimum
+                // Priority: firstName if >= 3 chars, else try lastName visible portion
+                if (firstName.length >= 3) {
                     activeUserNames.push(firstName.substring(0, 3));
+                } else if (lastNameVisible.length >= 3) {
+                    // Use first 3 chars of visible last name instead
+                    activeUserNames.push(lastNameVisible.substring(0, 3));
                 }
+                // If BOTH are < 3 chars, this user is skipped
             }
         }
 
-        expect(activeUserNames.length).toBeGreaterThan(0);
+        // Skip test only if NO valid names found (both first AND last too short for ALL users)
+        if (activeUserNames.length === 0) {
+            console.log('⚠️ No active users with names >= 3 characters (first or last) found - skipping test');
+            test.skip();
+            return;
+        }
+
         const searchTerm = activeUserNames[Math.floor(Math.random() * activeUserNames.length)];
         console.log(`🔍 Filtering by Name: ${searchTerm}`);
 

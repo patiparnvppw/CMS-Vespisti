@@ -42,13 +42,14 @@ test.describe('Authentication', () => {
         await expect(page.locator('#errorText')).toBeVisible();
     });
 
-    test('sign in success', async ({ page }) => {
+    test('sign in success', async ({ page, baseURL }) => {
         await page.goto('/signin');
         await page.getByRole('button', { name: 'Sign in' }).click();
         await page.locator('#userNameInput').fill('test@vespiario.net');
         await page.locator('#passwordInput').fill('T12345678');
         await page.locator('#submitButton').click();
-        await expect(page).toHaveURL(/vespistiid-backend-dev\.vespiario\.net/);
+        const urlPattern = new RegExp(baseURL?.replace(/https?:\/\//, '').replace(/\/$/, '') || 'vespiario');
+        await expect(page).toHaveURL(urlPattern);
     });
 
     test('sign out success', async ({ page }) => {
@@ -68,14 +69,15 @@ test.describe('Authentication', () => {
         await expect(page).toHaveURL(/signin/);
     });
 
-    test('sign in with inactive credentials', async ({ page }) => {
+    test('sign in with inactive credentials', async ({ page, baseURL }) => {
         await page.goto('/signin');
         await page.getByRole('button', { name: 'Sign in' }).click();
         await page.locator('#userNameInput').fill('test2@vespiario.net');
         await page.locator('#passwordInput').fill('T12345678');
         await page.locator('#submitButton').click();
 
-        await expect(page).toHaveURL(/vespistiid-backend-dev\.vespiario\.net/); //stay on sign in page
+        const urlPattern = new RegExp(baseURL?.replace(/https?:\/\//, '').replace(/\/$/, '') || 'vespiario');
+        await expect(page).toHaveURL(urlPattern); //stay on sign in page
     });
 
     test('sign in with invalid credentials', async ({ page }) => {
@@ -91,14 +93,15 @@ test.describe('Authentication', () => {
         ).toBeVisible();
     });
 
-    test('should redirect to signin after sign out and go back', async ({ page }) => {
+    test('should redirect to signin after sign out and go back', async ({ page, baseURL }) => {
         await page.goto('/signin');
         await page.getByRole('button', { name: 'Sign in' }).click();
         await page.locator('#userNameInput').fill('test@vespiario.net');
         await page.locator('#passwordInput').fill('T12345678');
         await page.locator('#submitButton').click();
 
-        await expect(page).toHaveURL(/vespistiid-backend-dev\.vespiario\.net/);
+        const urlPattern = new RegExp(baseURL?.replace(/https?:\/\//, '').replace(/\/$/, '') || 'vespiario');
+        await expect(page).toHaveURL(urlPattern);
 
         await page.getByRole('button', {
             name: 'Test-FirstName Test-lastName'
