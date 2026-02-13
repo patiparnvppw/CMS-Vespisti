@@ -23,7 +23,7 @@ const environments = {
         password: process.env.TEST_PASSWORD || 'T12345678',
     },
     prod: {
-        baseURL: process.env.BASE_URL || 'https://cms-vespisti.com',
+        baseURL: process.env.BASE_URL || 'https://vespistiid-backend.vespiario.net/',
         username: process.env.TEST_USERNAME || 'test@vespiario.net',
         password: process.env.TEST_PASSWORD || 'T12345678',
     },
