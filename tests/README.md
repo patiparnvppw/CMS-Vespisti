@@ -36,6 +36,15 @@ ENV=uat npm run test:ui
 # PROD environment
 ENV=prod npm run test:ui
 
+# DEV environment
+ENV=dev npm run test:headed
+
+# UAT environment
+ENV=uat npm run test:headed
+
+# PROD environment
+ENV=prod npm run test:headed
+
 # Run specific test file
 npx playwright test tests/auth.spec.ts
 
@@ -52,6 +61,15 @@ ENV=uat npx playwright test --ui
 
 # PROD
 ENV=prod npx playwright test --ui
+
+# DEV
+ENV=dev npx playwright test --headed
+
+# UAT
+ENV=uat npx playwright test --headed
+
+# PROD
+ENV=prod npx playwright test --headed
 ```
 
 ## Test Structure
