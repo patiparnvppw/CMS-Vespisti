@@ -27,6 +27,15 @@ npm run test:debug
 # Show test report
 npm run test:report
 
+# DEV environment
+ENV=dev npm run test:ui
+
+# UAT environment
+ENV=uat npm run test:ui
+
+# PROD environment
+ENV=prod npm run test:ui
+
 # Run specific test file
 npx playwright test tests/auth.spec.ts
 
@@ -34,6 +43,15 @@ npx playwright test tests/auth.spec.ts
 npx playwright test --project=chromium
 npx playwright test --project=firefox
 npx playwright test --project=webkit
+
+# DEV
+ENV=dev npx playwright test --ui
+
+# UAT
+ENV=uat npx playwright test --ui
+
+# PROD
+ENV=prod npx playwright test --ui
 ```
 
 ## Test Structure
