@@ -1408,6 +1408,7 @@ test.describe('Export', () => {
         console.log(`✅ All personal data columns are empty for deleted accounts`);
     });
 
+
     test('Verify address data export matches API', async ({ page, browserName, request }) => {
         test.skip(browserName !== 'chromium', 'Download event not reliable on Firefox/WebKit');
         test.slow(); // Allow 90s for download + API calls
@@ -1547,4 +1548,6 @@ test.describe('Export', () => {
             console.log(`  ✅ Postcode: "${excelPostcode}"`);
         }
     });
+    //console.log(`\n✅ All ${apiAddresses.length} addresses verified for ${vespistiId}`);
+    //console.log(`✅ Address data in Excel matches API response`);
 });  

@@ -54,22 +54,22 @@ npx playwright test --project=firefox
 npx playwright test --project=webkit
 
 # DEV
-ENV=dev npx playwright test --ui
+ENV=dev npx playwright test --ui --project=chromium
 
 # UAT
-ENV=uat npx playwright test --ui
+ENV=uat npx playwright test --ui --project=chromium
 
 # PROD
-ENV=prod npx playwright test --ui
+ENV=prod npx playwright test --ui --project=chromium
 
 # DEV
-ENV=dev npx playwright test --headed
+ENV=dev npx playwright test --headed --project=chromium
 
 # UAT
-ENV=uat npx playwright test --headed
+ENV=uat npx playwright test --headed --project=chromium
 
 # PROD
-ENV=prod npx playwright test --headed
+ENV=prod npx playwright test --headed --project=chromium
 ```
 
 ## Test Structure
