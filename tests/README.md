@@ -28,21 +28,18 @@ npm run test:debug
 npm run test:report
 
 # DEV environment
+npm run test:dev
 ENV=dev npm run test:ui
-
-# UAT environment
-ENV=uat npm run test:ui
-
-# PROD environment
-ENV=prod npm run test:ui
-
-# DEV environment
 ENV=dev npm run test:headed
 
 # UAT environment
+npm run test:uat
+ENV=uat npm run test:ui
 ENV=uat npm run test:headed
 
 # PROD environment
+npm run test:prod
+ENV=prod npm run test:ui
 ENV=prod npm run test:headed
 
 # Run specific test file
