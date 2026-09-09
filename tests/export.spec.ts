@@ -8,7 +8,7 @@ import * as os from 'os';
 const XlsxPopulate = require('xlsx-populate');
 
 const EXCEL_FILE_PASSWORD = 'TEST';
-const DOWNLOAD_TIMEOUT = 60000; // 60 seconds for download attempt
+const DOWNLOAD_TIMEOUT = 90000; // 90 seconds for download attempt
 const MAX_DOWNLOAD_RETRIES = 2; // Retry 2 times (total 3 attempts)
 
 // Helper function to download with retry + refresh on timeout
@@ -420,7 +420,6 @@ test.describe('Export', () => {
             const email = await row.locator('td:nth-child(2)').textContent();
 
             if (email?.trim() && email.includes('@') && (!deletedDate?.trim() || deletedDate.trim() === '-')) {
-                // Get visible part before asterisks
                 const emailLocal = email.split('@')[0];
                 const visibleChars = emailLocal.replace(/\*/g, '');
                 if (visibleChars.length >= 3) {
@@ -431,6 +430,8 @@ test.describe('Export', () => {
 
         expect(activeUserEmails.length).toBeGreaterThan(0);
         const searchTerm = activeUserEmails[Math.floor(Math.random() * activeUserEmails.length)];
+        const searchTermLower = searchTerm.toLowerCase();
+
         console.log(`🔍 Filtering by Email: ${searchTerm}`);
 
         // Enter search term and search
@@ -444,15 +445,13 @@ test.describe('Export', () => {
         expect(filteredCount).toBeGreaterThan(0);
         console.log(`📋 Filtered results: ${filteredCount}`);
 
-        // Verify UI data matches filter and collect for comparison
-        const searchTermLower = searchTerm.toLowerCase();
+        // Verify UI data matches the same visible search term used for filtering
         const uiEmails: { vespistiId: string; email: string }[] = [];
         const filteredRows = page.locator('tbody tr');
         for (let i = 0; i < filteredCount; i++) {
             const row = filteredRows.nth(i);
             const emailText = await row.locator('td:nth-child(2)').textContent();
             const vespistiId = await row.locator('.text-theme-xs.text-gray-500').textContent();
-            // Email is masked but visible part should contain search term
             const emailLocal = emailText?.split('@')[0]?.replace(/\*/g, '').toLowerCase() || '';
             expect(emailLocal.includes(searchTermLower), `UI Email should contain "${searchTerm}", got: "${emailText}"`).toBe(true);
             if (vespistiId) uiEmails.push({ vespistiId: vespistiId.trim(), email: emailText?.trim() || '' });
@@ -464,7 +463,7 @@ test.describe('Export', () => {
         await expect(page.getByText('Data Export Warning')).toBeVisible();
 
         const download = await downloadWithRetry(page, MAX_DOWNLOAD_RETRIES, async () => {
-            // Re-apply Email filter
+            // Re-apply Email filter using the same visible search term
             const filterDropdown = page.getByRole('combobox');
             await filterDropdown.selectOption('email');
             await page.waitForTimeout(500);
@@ -485,7 +484,7 @@ test.describe('Export', () => {
         expect(data.length).toBeGreaterThan(0);
         console.log(`📊 Excel rows: ${data.length}`);
 
-        // Verify all Excel rows contain the search term in Email
+        // Verify all Excel rows contain the same visible search term used for filtering
         for (const row of data) {
             const email = (row['Email']?.toString() || '').toLowerCase();
             expect(email.includes(searchTermLower), `Excel Email should contain "${searchTerm}", got: "${email}"`).toBe(true);

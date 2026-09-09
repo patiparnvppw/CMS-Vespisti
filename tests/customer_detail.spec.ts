@@ -90,39 +90,37 @@ async function clickRandomCustomerDetail(page: Page): Promise<{
         detailButton.first().click()
     ]);
 
-    // Intercept API on new page to capture customer data
-    let apiData: CustomerApiData = {};
+    // Wait for the document before the API-capture reload.
+    await newPage.waitForLoadState('domcontentloaded');
 
-    // Set up route handler for API
-    await newPage.route('**/api/**', async (route) => {
-        const response = await route.fetch();
-        try {
-            const json = await response.json();
-            // Capture customer detail data
-            if (json && (json.id || json.vespistiId || json.data?.id)) {
-                apiData = json.data || json;
+    const currentUrl = newPage.url();
+    const urlIdMatch = currentUrl.match(/id=([^&]+)/);
+    const customerId = urlIdMatch ? urlIdMatch[1] : '';
+
+    let apiData: CustomerApiData = {};
+    const apiResponsePromise = newPage.waitForResponse(
+        response => response.url().includes(`/api/customer/${customerId}`) && response.ok(),
+        { timeout: 30000 }
+    ).catch(() => null);
+
+    // Reload once so the response listener observes the detail request.
+    await Promise.all([
+        newPage.reload({ waitUntil: 'domcontentloaded' }),
+        apiResponsePromise
+    ]).then(async ([, response]) => {
+        if (response) {
+            try {
+                const json = await response.json();
+                apiData = json?.data || json;
                 console.log(`📦 API Data captured:`, JSON.stringify(apiData, null, 2).substring(0, 500));
+            } catch {
+                // Ignore non-JSON responses.
             }
-        } catch {
-            // Not JSON response, continue
         }
-        await route.fulfill({ response });
     });
 
-    // Wait for new page to load
-    await newPage.waitForLoadState('networkidle');
-
-    // Reload to capture API with route handler
-    await newPage.reload();
-    await newPage.waitForLoadState('networkidle');
-
     // Extract customer ID from URL
-    const currentUrl = newPage.url();
     console.log(`📍 New tab URL: ${currentUrl}`);
-
-    let customerId = '';
-    const urlIdMatch = currentUrl.match(/id=([^&]+)/);
-    customerId = urlIdMatch ? urlIdMatch[1] : '';
 
     console.log(`✅ Opened detail page in new tab for customer ID: ${customerId}`);
 
