@@ -8,8 +8,11 @@ import * as os from 'os';
 const XlsxPopulate = require('xlsx-populate');
 
 const EXCEL_FILE_PASSWORD = 'TEST';
-const DOWNLOAD_TIMEOUT = 90000; // 90 seconds for download attempt
-const MAX_DOWNLOAD_RETRIES = 2; // Retry 2 times (total 3 attempts)
+// Exports with >1 row consistently take ~60-75s to generate server-side
+// (fixed job/queue overhead, not row-count driven); give attempt 1 enough
+// room to finish naturally instead of timing out and reloading needlessly.
+const DOWNLOAD_TIMEOUT = 90000;
+const MAX_DOWNLOAD_RETRIES = 1; // Retry once as a safety net (total 2 attempts)
 
 // Helper function to download with retry + refresh on timeout
 import { Page, Download } from '@playwright/test';
@@ -23,9 +26,12 @@ async function downloadWithRetry(
         try {
             console.log(`📥 Download attempt ${attempt}/${maxRetries + 1}...`);
 
+            const yesButton = page.getByRole('button', { name: 'Yes' });
+            await expect(yesButton).toBeEnabled({ timeout: 10000 });
+
             const [download] = await Promise.all([
                 page.waitForEvent('download', { timeout: DOWNLOAD_TIMEOUT }),
-                page.getByRole('button', { name: 'Yes' }).click()
+                yesButton.click()
             ]);
 
             console.log(`✅ Download successful on attempt ${attempt}`);
@@ -189,7 +195,7 @@ test.describe('Export', () => {
 
     test('Export filtered by Vespisti ID', async ({ page, browserName }) => {
         test.skip(browserName !== 'chromium', 'Download event not reliable on Firefox/WebKit');
-        test.slow(); // Allow 90s for download
+        test.setTimeout(210_000); // allow time for download retries (2 attempts * 90s DOWNLOAD_TIMEOUT)
         await page.goto('/customer');
         await expect(page.locator('table')).toBeVisible();
 
@@ -282,7 +288,7 @@ test.describe('Export', () => {
 
     test('Export filtered by Name / Last Name', async ({ page, browserName }) => {
         test.skip(browserName !== 'chromium', 'Download event not reliable on Firefox/WebKit');
-        test.slow(); // Allow 90s for download
+        test.setTimeout(210_000); // allow time for download retries (2 attempts * 90s DOWNLOAD_TIMEOUT)
         await page.goto('/customer');
         await expect(page.locator('table')).toBeVisible();
 
@@ -400,7 +406,7 @@ test.describe('Export', () => {
 
     test('Export filtered by Email', async ({ page, browserName }) => {
         test.skip(browserName !== 'chromium', 'Download event not reliable on Firefox/WebKit');
-        test.slow(); // Allow 90s for download
+        test.setTimeout(210_000); // allow time for download retries (2 attempts * 90s DOWNLOAD_TIMEOUT)
         await page.goto('/customer');
         await expect(page.locator('table')).toBeVisible();
 
@@ -501,7 +507,7 @@ test.describe('Export', () => {
 
     test('Export filtered by Phone', async ({ page, browserName }) => {
         test.skip(browserName !== 'chromium', 'Download event not reliable on Firefox/WebKit');
-        test.slow(); // Allow 90s for download
+        test.setTimeout(210_000); // allow time for download retries (2 attempts * 90s DOWNLOAD_TIMEOUT)
         await page.goto('/customer');
         await expect(page.locator('table')).toBeVisible();
 
@@ -600,7 +606,7 @@ test.describe('Export', () => {
 
     test('Export filtered by Gender', async ({ page, browserName }) => {
         test.skip(browserName !== 'chromium', 'Download event not reliable on Firefox/WebKit');
-        test.slow(); // Allow 90s for download
+        test.setTimeout(210_000); // allow time for download retries (2 attempts * 90s DOWNLOAD_TIMEOUT)
         await page.goto('/customer');
         await expect(page.locator('table')).toBeVisible();
 
@@ -697,7 +703,7 @@ test.describe('Export', () => {
 
     test('Export filtered by Date of Birth', async ({ page, browserName }) => {
         test.skip(browserName !== 'chromium', 'Download event not reliable on Firefox/WebKit');
-        test.slow(); // Allow 90s for download
+        test.setTimeout(210_000); // allow time for download retries (2 attempts * 90s DOWNLOAD_TIMEOUT)
         await page.goto('/customer');
         await expect(page.locator('table')).toBeVisible();
 
@@ -821,7 +827,7 @@ test.describe('Export', () => {
 
     test('Export filtered by Created Date', async ({ page, browserName }) => {
         test.skip(browserName !== 'chromium', 'Download event not reliable on Firefox/WebKit');
-        test.slow(); // Allow 90s for download
+        test.setTimeout(210_000); // allow time for download retries (2 attempts * 90s DOWNLOAD_TIMEOUT)
         await page.goto('/customer');
         await expect(page.locator('table')).toBeVisible();
 
@@ -970,7 +976,7 @@ test.describe('Export', () => {
 
     test('Export filtered by Deleted Date', async ({ page, browserName }) => {
         test.skip(browserName !== 'chromium', 'Download event not reliable on Firefox/WebKit');
-        test.slow(); // Allow 90s for download
+        test.setTimeout(210_000); // allow time for download retries (2 attempts * 90s DOWNLOAD_TIMEOUT)
         await page.goto('/customer');
         await expect(page.locator('table')).toBeVisible();
 
@@ -1139,7 +1145,7 @@ test.describe('Export', () => {
 
     test('Export to Excel download', async ({ page, browserName }) => {
         test.skip(browserName !== 'chromium', 'Download event not reliable on Firefox/WebKit');
-        test.slow(); // Allow 90s for download
+        test.setTimeout(210_000); // allow time for download retries (2 attempts * 90s DOWNLOAD_TIMEOUT)
         await page.goto('/customer');
         await expect(page.locator('table')).toBeVisible();
 
@@ -1159,7 +1165,7 @@ test.describe('Export', () => {
 
     test('Verify Excel column headers', async ({ page, browserName }) => {
         test.skip(browserName !== 'chromium', 'Download event not reliable on Firefox/WebKit');
-        test.slow(); // Allow 90s for download
+        test.setTimeout(210_000); // allow time for download retries (2 attempts * 90s DOWNLOAD_TIMEOUT)
         await page.goto('/customer');
         await expect(page.locator('table')).toBeVisible();
 
@@ -1343,7 +1349,7 @@ test.describe('Export', () => {
 
     test('Verify deleted account export', async ({ page, browserName }) => {
         test.skip(browserName !== 'chromium', 'Download event not reliable on Firefox/WebKit');
-        test.slow(); // Allow 90s for download
+        test.setTimeout(210_000); // allow time for download retries (2 attempts * 90s DOWNLOAD_TIMEOUT)
         await page.goto('/customer');
         await expect(page.locator('table')).toBeVisible();
 
@@ -1409,7 +1415,7 @@ test.describe('Export', () => {
 
     test('Verify address data export matches API', async ({ page, browserName, request }) => {
         test.skip(browserName !== 'chromium', 'Download event not reliable on Firefox/WebKit');
-        test.slow(); // Allow 90s for download + API calls
+        test.setTimeout(210_000); // allow time for download retries (2 attempts * 90s DOWNLOAD_TIMEOUT) + API calls
 
         // Step 1: Export all data
         await page.goto('/customer');

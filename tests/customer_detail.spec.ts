@@ -26,10 +26,10 @@ async function clickRandomCustomerDetail(page: Page): Promise<{
 }> {
     await page.goto('/customer');
     await expect(page.locator('table')).toBeVisible();
-    await page.waitForLoadState('networkidle');
 
     // Get all table rows (excluding header)
     const rows = page.locator('tbody tr');
+    await expect(rows.first()).toBeVisible({ timeout: 15000 });
     const rowCount = await rows.count();
     console.log(`📋 Found ${rowCount} customers in list`);
 
